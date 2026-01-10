@@ -15,6 +15,17 @@ import { connectDB } from "./lib/db.js";
 
 dotenv.config();
 
+// Connect to DB immediately
+connectDB();
+
+process.on('unhandledRejection', (reason, promise) => {
+	console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+	console.error('Uncaught Exception:', error);
+});
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -51,11 +62,10 @@ if (process.env.NODE_ENV === "production") {
 }
 
 if (process.env.VERCEL) {
-	connectDB();
+	// connectDB already called at top
 } else {
 	app.listen(PORT, () => {
 		console.log("Server is running on http://localhost:" + PORT);
-		connectDB();
 	});
 }
 
