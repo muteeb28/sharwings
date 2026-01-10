@@ -160,34 +160,34 @@ async function updateFeaturedProductsCache() {
 }
 
 export const editProductDetails = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, description, price, salePrice, category, image, quantity } = req.body;
+	try {
+		const { id } = req.params;
+		const { name, description, price, salePrice, category, image, quantity } = req.body;
 
-        const product = await Product.findById(id);
-        if (!product) {
-            return res.status(404).json({ message: "Product not found" });
-        }
+		const product = await Product.findById(id);
+		if (!product) {
+			return res.status(404).json({ message: "Product not found" });
+		}
 
-        // Update fields if provided
-        if (name !== undefined) product.name = name;
-        if (description !== undefined) product.description = description;
-        if (price !== undefined) product.price = price;
-        if (category !== undefined) product.category = category;
-        if (image !== undefined) product.image = image;
+		// Update fields if provided
+		if (name !== undefined) product.name = name;
+		if (description !== undefined) product.description = description;
+		if (price !== undefined) product.price = price;
+		if (category !== undefined) product.category = category;
+		if (image !== undefined) product.image = image;
 		if (salePrice !== undefined) product.salePrice = salePrice;
 		if (quantity !== undefined) product.quantity = quantity;
 
-        const updatedProduct = await product.save();
+		const updatedProduct = await product.save();
 
-        // Optionally update featured products cache if isFeatured or other relevant fields changed
-        await updateFeaturedProductsCache();
+		// Optionally update featured products cache if isFeatured or other relevant fields changed
+		await updateFeaturedProductsCache();
 
-        res.json(updatedProduct);
-    } catch (error) {
-        console.log("Error in editProductDetails controller", error.message);
-        res.status(500).json({ message: "Server error", error: error.message });
-    }
+		res.json(updatedProduct);
+	} catch (error) {
+		console.log("Error in editProductDetails controller", error.message);
+		res.status(500).json({ message: "Server error", error: error.message });
+	}
 };
 
 export const claimWarranty = async (req, res) => {
@@ -236,7 +236,7 @@ export const searchProduct = async (req, res) => {
 		}
 
 		res.json({ products });
-	} catch {
+	} catch (error) {
 		res.status(500).json({ message: "Server error", error: error.message });
 	}
 };
@@ -289,7 +289,7 @@ export const updateProductQuantity = async (req, res) => {
 }
 
 
-export const warrantyClaimsDashboard = async (req, res) =>  {
+export const warrantyClaimsDashboard = async (req, res) => {
 
 	try {
 		const claims = await ClaimWarranty.find({}).populate("user", "name email").lean();
