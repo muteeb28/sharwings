@@ -46,13 +46,25 @@ app.get("/api/health", (req, res) => {
 	res.status(200).json({ status: "ok", message: "Server is running", env: process.env.NODE_ENV });
 });
 
+import mongoose from "mongoose";
+
 app.get("/api/env-check", (req, res) => {
+	const dbState = mongoose.connection.readyState;
+	const dbStatus = {
+		0: "disconnected",
+		1: "connected",
+		2: "connecting",
+		3: "disconnecting",
+	};
+
 	res.status(200).json({
 		mongo_uri_set: !!process.env.MONGO_URI,
 		redis_url_set: !!process.env.UPSTASH_REDIS_URL,
 		node_env: process.env.NODE_ENV,
 		vercel: !!process.env.VERCEL,
-		mongo_uri_prefix: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 15) : "none"
+		mongo_uri_prefix: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 15) : "none",
+		db_connection_status: dbStatus[dbState] || "unknown",
+		db_host: mongoose.connection.host || "unknown"
 	});
 });
 
