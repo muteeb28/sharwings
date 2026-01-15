@@ -1,5 +1,6 @@
 import { ShoppingCart, UserPlus, LogIn, LogOut, Lock, Search } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getOptimizedImageUrl } from "../lib/imageUtils";
 import { useUserStore } from "../stores/useUserStore";
 import { useCartStore } from "../stores/useCartStore";
 import { useState, useRef } from "react";
@@ -99,7 +100,13 @@ const Navbar = () => {
                         }}
                       >
                         {product.image ? (
-                          <img src={product.image} alt={product.name} className="w-8 h-8 rounded object-cover" />
+                          <img
+                            src={getOptimizedImageUrl(product.image, { width: 80 })}
+                            alt={product.name}
+                            className="w-8 h-8 rounded object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
                         ) : (
                           <Search size={28} className="text-emerald-400" />
                         )}
@@ -248,7 +255,13 @@ const Navbar = () => {
                         }}
                       >
                         {product.image ? (
-                          <img src={product.image} alt={product.name} className="w-8 h-8 rounded object-cover" />
+                          <img
+                            src={getOptimizedImageUrl(product.image, { width: 80 })}
+                            alt={product.name}
+                            className="w-8 h-8 rounded object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
                         ) : (
                           <Search size={28} className="text-emerald-400" />
                         )}

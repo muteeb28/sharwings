@@ -1,20 +1,39 @@
 import nodemailer from "nodemailer";
 
+const parseBool = (value) =>
+	value === true || value === "true" || value === "1";
+
 class EmailHelper {
     constructor(config = {}) {
         const {
             host = process.env.NODEMAILER_HOST,
             port = process.env.NODEMAILER_PORT,
-            secure = true,
+            secure,
             user = process.env.NODEMAILER_EMAIL,
             pass = process.env.NODEMAILER_PASS,
+            disabled = parseBool(process.env.NODEMAILER_DISABLED),
         } = config;
+
+        const portNumber = Number(port);
+        const secureDefault =
+            secure !== undefined
+                ? secure
+                : process.env.NODEMAILER_SECURE !== undefined
+                    ? parseBool(process.env.NODEMAILER_SECURE)
+                    : portNumber === 465;
+
+        this.disabled = disabled || !host || !user || !pass;
+
+        if (this.disabled) {
+            this.transporter = null;
+            return;
+        }
 
         this.transporter = nodemailer.createTransport({
             host,
-            port,
-            secure,
-            auth: { user, pass }
+            port: portNumber,
+            secure: secureDefault,
+            auth: { user, pass },
         });
     }
 
@@ -27,6 +46,11 @@ class EmailHelper {
     }
 
     async sendEmail ({to, subject, text, html}) {
+        if (this.disabled) {
+            console.log("Email disabled or not configured. Skipping send.");
+            return { skipped: true };
+        }
+
         const mailOptions = {
             from: `"Sharwings" <${process.env.NODEMAILER_EMAIL}>`,
             to,

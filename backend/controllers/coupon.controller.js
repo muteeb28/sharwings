@@ -1,8 +1,13 @@
-import Coupon from "../models/coupon.model.js";
+import prisma from "../lib/prisma.js";
 
 export const getCoupon = async (req, res) => {
 	try {
-		const coupon = await Coupon.findOne({ userId: req.user._id, isActive: true });
+		const coupon = await prisma.coupon.findFirst({
+			where: {
+				userId: req.user.id,
+				isActive: true
+			}
+		});
 		res.json(coupon || null);
 	} catch (error) {
 		console.log("Error in getCoupon controller", error.message);
@@ -13,15 +18,23 @@ export const getCoupon = async (req, res) => {
 export const validateCoupon = async (req, res) => {
 	try {
 		const { code } = req.body;
-		const coupon = await Coupon.findOne({ code: code, userId: req.user._id, isActive: true });
+		const coupon = await prisma.coupon.findFirst({
+			where: {
+				code: code,
+				userId: req.user.id,
+				isActive: true
+			}
+		});
 
 		if (!coupon) {
 			return res.status(404).json({ message: "Coupon not found" });
 		}
 
-		if (coupon.expirationDate < new Date()) {
-			coupon.isActive = false;
-			await coupon.save();
+		if (new Date(coupon.expirationDate) < new Date()) {
+			await prisma.coupon.update({
+				where: { id: coupon.id },
+				data: { isActive: false }
+			});
 			return res.status(404).json({ message: "Coupon expired" });
 		}
 

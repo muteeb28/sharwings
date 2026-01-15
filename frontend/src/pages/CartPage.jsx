@@ -16,7 +16,7 @@ const CartPage = () => {
   const { user, addBillingAddress } = useUserStore();
   const [showModal, setShowModal] = useState(false);
   const [loader,setLoader] = useState(false);
-  const [paymentMode, setPaymentMode] = useState("cod");
+  const [paymentMode, setPaymentMode] = useState("");
   const [form, setForm] = useState({
     name: "",
     street: "",

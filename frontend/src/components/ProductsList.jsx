@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
 import { Trash, Star, EllipsisVertical } from "lucide-react";
 import { useProductStore } from "../stores/useProductStore";
+import { getOptimizedImageUrl } from "../lib/imageUtils";
 import { useState } from "react";
 import EditProductModal from "../components/EditProductForm";
 
 const ProductsList = () => {
-	const { deleteProduct, toggleFeaturedProduct, products, editProductDetails } = useProductStore();
+	const { deleteProduct, toggleFeaturedProduct, allProducts, editProductDetails } = useProductStore();
 	const [openMenuId, setOpenMenuId] = useState(null);
 
 
@@ -90,15 +91,17 @@ const ProductsList = () => {
 				</thead>
 
 				<tbody className='bg-gray-800 divide-y divide-gray-700'>
-					{products?.map((product) => (
+					{allProducts?.map((product) => (
 						<tr key={product._id} className='hover:bg-gray-700'>
 							<td className='px-6 py-4 whitespace-nowrap'>
 								<div className='flex items-center'>
 									<div className='flex-shrink-0 h-10 w-10'>
 										<img
 											className='h-10 w-10 rounded-full object-cover'
-											src={product.image}
+											src={getOptimizedImageUrl(product.image, { width: 80 })}
 											alt={product.name}
+											loading="lazy"
+											decoding="async"
 										/>
 									</div>
 									<div className='ml-4'>

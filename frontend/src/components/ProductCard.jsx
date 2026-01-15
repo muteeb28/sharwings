@@ -4,6 +4,7 @@ import { useUserStore } from "../stores/useUserStore";
 import { useCartStore } from "../stores/useCartStore";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { getOptimizedImageUrl, getOptimizedSrcSet } from "../lib/imageUtils";
 
 const ProductCard = ({ product }) => {
   const { user } = useUserStore();
@@ -25,6 +26,15 @@ const ProductCard = ({ product }) => {
     setQuantity((q) => q + 1);
   };
 
+  const imageUrl = getOptimizedImageUrl(product.image, { width: 640 });
+  const imageSrcSet = getOptimizedSrcSet(product.image, [320, 480, 640, 800]);
+  const priceValue = Number(product.price);
+  const saleValue = Number(product.salePrice);
+  const savings =
+    Number.isFinite(priceValue) && Number.isFinite(saleValue)
+      ? Math.max(0, priceValue - saleValue)
+      : null;
+
   return (
     <motion.div
       whileHover={{
@@ -41,8 +51,12 @@ const ProductCard = ({ product }) => {
       >
         <img
           className="object-contain w-full h-full transition-transform duration-300 hover:scale-105"
-          src={product.image}
+          src={imageUrl}
+          srcSet={imageSrcSet}
+          sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           alt={product.name}
+          loading="lazy"
+          decoding="async"
         />
         <div className="absolute inset-0 bg-black bg-opacity-20" />
       </a>
@@ -62,7 +76,7 @@ const ProductCard = ({ product }) => {
               </span>
             )}
           </div>
-          {product.salePrice && product.price && (
+          {product.salePrice && product.price && savings !== null && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-400/90 text-emerald-900 font-bold text-xs shadow animate-pulse mt-1 w-fit">
               <svg width="16" height="16" fill="none" viewBox="0 0 20 20">
                 <path
@@ -70,7 +84,7 @@ const ProductCard = ({ product }) => {
                   fill="#fbbf24"
                 />
               </svg>
-              Save ₹{product.price - product.salePrice}!
+              Save ₹{savings.toFixed(2)}!
             </span>
           )}
         </div>

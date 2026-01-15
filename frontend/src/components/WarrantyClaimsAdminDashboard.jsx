@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Trash, Star, EllipsisVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import axios from "../lib/axios";
+import { getOptimizedImageUrl } from "../lib/imageUtils";
 
 export default function WarrantyClaimsAdminDashboard() {
 
@@ -91,8 +92,10 @@ export default function WarrantyClaimsAdminDashboard() {
                   <div className="flex-shrink-0 h-10 w-10">
                     <img
                       className="h-10 w-10 rounded-full object-cover"
-                      src={claim.imageUrl}
+                      src={getOptimizedImageUrl(claim.imageUrl, { width: 80 })}
                       alt={claim.productName}
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                   <div className="ml-4">

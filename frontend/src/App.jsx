@@ -10,7 +10,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { Toaster } from "react-hot-toast";
 import { useUserStore } from "./stores/useUserStore";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import LoadingSpinner from "./components/LoadingSpinner";
 import CartPage from "./pages/CartPage";
 import { useCartStore } from "./stores/useCartStore";
@@ -30,7 +30,10 @@ import Career from "./pages/Career";
 function App() {
 	const { user, checkAuth, checkingAuth } = useUserStore();
 	const { getCartItems } = useCartStore();
+	const hasCheckedAuth = useRef(false);
 	useEffect(() => {
+		if (hasCheckedAuth.current) return;
+		hasCheckedAuth.current = true;
 		checkAuth();
 	}, [checkAuth]);
 

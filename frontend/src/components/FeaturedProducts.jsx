@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCartStore } from "../stores/useCartStore";
+import { getOptimizedImageUrl, getOptimizedSrcSet } from "../lib/imageUtils";
 
 const FeaturedProducts = ({ featuredProducts }) => {
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -21,16 +22,36 @@ const FeaturedProducts = ({ featuredProducts }) => {
 		return () => window.removeEventListener("resize", handleResize);
 	}, []);
 
+	const maxIndex = useMemo(() => {
+		const total = featuredProducts?.length || 0;
+		return Math.max(0, total - itemsPerPage);
+	}, [featuredProducts?.length, itemsPerPage]);
+
+	useEffect(() => {
+		setCurrentIndex((prev) => Math.min(prev, maxIndex));
+	}, [maxIndex]);
+
 	const nextSlide = () => {
-		setCurrentIndex((prevIndex) => prevIndex + itemsPerPage);
+		setCurrentIndex((prevIndex) => Math.min(prevIndex + itemsPerPage, maxIndex));
 	};
 
 	const prevSlide = () => {
-		setCurrentIndex((prevIndex) => prevIndex - itemsPerPage);
+		setCurrentIndex((prevIndex) => Math.max(prevIndex - itemsPerPage, 0));
 	};
 
 	const isStartDisabled = currentIndex === 0;
-	const isEndDisabled = currentIndex >= ( featuredProducts?.length || 10 ) - itemsPerPage;
+	const isEndDisabled = currentIndex >= maxIndex;
+
+	if (!featuredProducts || featuredProducts.length === 0) {
+		return (
+			<div className='py-12'>
+				<div className='container mx-auto px-4'>
+					<h2 className='text-center text-5xl sm:text-6xl font-bold text-emerald-400 mb-4'>Featured</h2>
+					<p className='text-center text-gray-300'>No featured products available.</p>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className='py-12'>
@@ -42,14 +63,22 @@ const FeaturedProducts = ({ featuredProducts }) => {
 							className='flex transition-transform duration-300 ease-in-out'
 							style={{ transform: `translateX(-${currentIndex * (100 / itemsPerPage)}%)` }}
 						>
-							{featuredProducts?.map((product) => (
+							{featuredProducts?.map((product) => {
+								const imageUrl = getOptimizedImageUrl(product.image, { width: 560 });
+								const imageSrcSet = getOptimizedSrcSet(product.image, [320, 480, 560, 720]);
+
+								return (
 								<div key={product._id} className='w-full sm:w-1/2 lg:w-1/3 xl:w-1/4 flex-shrink-0 px-2'>
 									<div className='bg-white bg-opacity-10 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden h-full transition-all duration-300 hover:shadow-xl border border-emerald-500/30'>
 										<div className='overflow-hidden'>
 											<img
-												src={product.image}
+												src={imageUrl}
+												srcSet={imageSrcSet}
+												sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
 												alt={product.name}
 												className='w-full h-48 object-cover transition-transform duration-300 ease-in-out hover:scale-110'
+												loading="lazy"
+												decoding="async"
 											/>
 										</div>
 										<div className='p-4'>
@@ -68,7 +97,8 @@ const FeaturedProducts = ({ featuredProducts }) => {
 										</div>
 									</div>
 								</div>
-							))}
+								);
+							})}
 						</div>
 					</div>
 					<button

@@ -75,37 +75,35 @@ export const useCartStore = create((set, get) => ({
 		set((prevState) => ({ cart: prevState.cart.filter((item) => item._id !== productId) }));
 		get().calculateTotals();
 	},
-	updateQuantity: async (productId, quantity, action) => {
+	updateQuantity: async (productId, quantity) => {
+		const previousCart = get().cart.map((item) => ({ ...item }));
 		if (quantity === 0) {
-			get().removeFromCart(productId);
+			set((prevState) => ({
+				cart: prevState.cart.filter((item) => item._id !== productId),
+			}));
+			get().calculateTotals();
+			try {
+				await axios.delete(`/cart`, { data: { productId } });
+			} catch (error) {
+				set({ cart: previousCart });
+				get().calculateTotals();
+				toast.error(error.response?.data?.message || "Failed to update cart");
+			}
 			return;
 		}
 		try {
-			if (action === "-") {
-				// Just update cart locally and backend, no need to check stock
-				await axios.put(`/cart/${productId}`, { quantity });
-				set((prevState) => ({
-					cart: prevState.cart.map((item) =>
-						item._id === productId ? { ...item, quantity } : item
-					),
-				}));
-				get().calculateTotals();
-			} else if (action === "+") {
-				// Check stock before incrementing
-				const updateQtyReq = await axios.post("products/quantity", { id: productId, quantity });
-				if (updateQtyReq.data.success) {
-					await axios.put(`/cart/${productId}`, { quantity });
-					set((prevState) => ({
-						cart: prevState.cart.map((item) =>
-							item._id === productId ? { ...item, quantity } : item
-						),
-					}));
-					get().calculateTotals();
-				}
-			}
+			set((prevState) => ({
+				cart: prevState.cart.map((item) =>
+					item._id === productId ? { ...item, quantity } : item
+				),
+			}));
+			get().calculateTotals();
+			await axios.put(`/cart/${productId}`, { quantity });
 		} catch (error) {
-			toast.error("this is the last piece of this product, you cannot update the quantity to more than 1");
-			return;
+			const message = error.response?.data?.message || "Failed to update cart";
+			set({ cart: previousCart });
+			get().calculateTotals();
+			toast.error(message);
 		}
 	},
 	calculateTotals: () => {

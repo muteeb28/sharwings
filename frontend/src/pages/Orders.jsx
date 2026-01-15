@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import axios from "../lib/axios";
 import { motion } from "framer-motion";
 import { ChevronRight, Calendar } from "lucide-react";
+import { getOptimizedImageUrl } from "../lib/imageUtils";
 import ReturnModal from "../components/OrderReturnForm";
 import OrderReturnProgressBar from "../components/OrderReturnProgressBar";
 import OrderStatus from "../components/OrderStatus";
@@ -103,9 +104,11 @@ export default function Orders() {
                           {order.products.map((item, idx) => (
                             <div key={idx} className="flex items-start gap-4 bg-white/30 p-3 rounded-lg">
                               <img
-                                src={item.product?.image}
+                                src={getOptimizedImageUrl(item.product?.image, { width: 240 })}
                                 alt={item.product?.name}
                                 className="w-20 h-20 rounded-md object-cover flex-shrink-0"
+                                loading="lazy"
+                                decoding="async"
                               />
                               <div className="flex-1">
                                 <div className="text-gray-800 font-semibold">{item.product?.name}</div>

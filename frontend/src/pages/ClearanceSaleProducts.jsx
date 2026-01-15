@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import ProductCard from "../components/ProductCard";
 
 export const ClearanceSaleProducts = () => {
-	const { fetchClearanceSaleProducts, products } = useProductStore();
+	const { fetchClearanceSaleProducts, clearanceProducts, loadingClearance } = useProductStore();
 
 	useEffect(() => {
 		fetchClearanceSaleProducts();
@@ -18,7 +18,11 @@ export const ClearanceSaleProducts = () => {
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.8, delay: 0.2 }}
 				>
-					{products?.length === 0 && (
+					{loadingClearance ? (
+						<div className='col-span-full text-center text-3xl font-semibold text-gray-300'>
+							Loading products...
+						</div>
+					) : clearanceProducts?.length === 0 ? (
 						<div className="col-span-full">
 							<div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-600 rounded-xl shadow-lg p-8 flex flex-col items-center justify-center">
 							<h2 className="text-3xl font-bold text-white mb-2">
@@ -41,11 +45,11 @@ export const ClearanceSaleProducts = () => {
 							</a>
 							</div>
 						</div>
+					) : (
+						clearanceProducts?.map((product) => (
+							<ProductCard key={product._id} product={product} />
+						))
 					)}
-
-					{products?.map((product) => (
-						<ProductCard key={product._id} product={product} />
-					))}
 				</motion.div>
 			</div>
 		</div>

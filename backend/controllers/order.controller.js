@@ -1,12 +1,32 @@
-import Order from "../models/order.model.js";
+import prisma from "../lib/prisma.js";
 
 export const getCustomerOrderHistory = async (req, res) => {
     try {
-        const orders = await Order.find({ user: req.user.id })
-        .populate("products.product", "name image")
-        .lean();
-        console.log(orders.map(order => console.log(order.products)));
-        const sortedOrders = orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const orders = await prisma.order.findMany({
+            where: { userId: req.user.id },
+            include: {
+                orderItems: {
+                    include: { product: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        // Transform structure to match frontend expectation (embedded products array via populate)
+        // Original: orders.products.product (populated)
+        // Prisma: orders.orderItems.product (included)
+        // We need to map `orderItems` to `products` structure if frontend expects it, or keep it as `products` field in JSON.
+        // Original Mongoose model had `products` array embedded. Controller returned `orders`.
+        // Frontend likely iterates `order.products`.
+
+        const formattedOrders = orders.map(order => ({
+            ...order,
+            products: order.orderItems.map(item => ({
+                product: item.product,
+                quantity: item.quantity,
+                price: item.price
+            }))
+        }));
 
         if (!orders || orders.length === 0) {
             return res.status(404).json({
@@ -15,8 +35,8 @@ export const getCustomerOrderHistory = async (req, res) => {
             });
         }
         res.json({
-            success:true,
-            orders: sortedOrders
+            success: true,
+            orders: formattedOrders
         });
     } catch (error) {
         console.error("Error in getCustomerOrderHistory controller", error.message);
@@ -27,21 +47,24 @@ export const getCustomerOrderHistory = async (req, res) => {
 export const requestOrderReturn = async (req, res) => {
     const { form, selectedOrder } = req.body;
     try {
-        const order = await Order.findById(selectedOrder);
+        const order = await prisma.order.findUnique({ where: { id: selectedOrder } });
         if (!order) {
             return res.status(404).json({ success: false, message: "Order not found" });
         }
-        if (order.user.toString() !== req.user.id) {
+        if (order.userId !== req.user.id) {
             return res.status(403).json({ success: false, message: "You are not authorized to return this order" });
         }
 
-        order.returnRequest.reason = form.reason;
-        order.returnRequest.description = form.description || '';
-        order.returnRequest.requestedAt = new Date();
-        order.returnRequest.status = 'Requested';
-        order.returnRequest.return = true;
-        
-        await order.save();
+        await prisma.order.update({
+            where: { id: selectedOrder },
+            data: {
+                returnReason: form.reason,
+                returnDescription: form.description || '',
+                returnRequestedAt: new Date(),
+                returnStatus: 'Requested',
+                isReturnRequested: true
+            }
+        });
 
         res.status(200).json({ success: true, message: "Return request submitted successfully" });
     } catch (error) {
@@ -51,53 +74,48 @@ export const requestOrderReturn = async (req, res) => {
 }
 
 export const orderReturnAction = async (req, res) => {
+    // This function was updating Product.status but Product has no status field.
+    // Commenting out for migration.
+
+    /*
     const { pid, action } = req.body;
-
-    if (!pid || !action) {
-        return res.status(400).json({
-            success: false,
-            msg: "please provide a valid product id and action to be taken!"
-        });
-    }
-
+    if (!pid || !action) { ... }
     try {
-        const result = await Product.updateOne(
-            { _id: pid },
-            { status: action }
-        );
-    
-        if (result.modifiedCount === 1) {
-            return res.status(200).json({
-                success: true,
-                msg: "order status updated Successfully"
-            });
-        }
-    
-        return res.status(500).json({
-            success: false,
-            msg: 'some unexpected error occured!'
-        });
-    }
-    catch (error) {
-        console.log(error);
-        return res.status(500).json({
-            success: false,
-            msg: "some unexpected error occured!"
-        });
-    }
+        const result = await Product.updateOne({ _id: pid }, { status: action });
+        ...
+    } ...
+    */
+    return res.status(501).json({ success: false, msg: "Feature not implemented in migration" });
 }
 
 export const getOrderReturnHistory = async (req, res) => {
-
     try {
-        const orders = await Order.find({ "returnRequest.return": true })
-            .populate("user", "name email")
-            .populate("products.product", "name image")
-            .lean();
-        console.log(orders);
+        const orders = await prisma.order.findMany({
+            where: { isReturnRequested: true },
+            include: {
+                user: { select: { name: true, email: true } },
+                orderItems: { include: { product: true } }
+            }
+        });
+
+        const formattedOrders = orders.map(order => ({
+            ...order,
+            products: order.orderItems.map(item => ({
+                product: item.product,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            returnRequest: { // Mimic old structure for frontend compatibility
+                status: order.returnStatus,
+                reason: order.returnReason,
+                description: order.returnDescription,
+                return: order.isReturnRequested
+            }
+        }));
+
         res.json({
             success: true,
-            orders
+            orders: formattedOrders
         });
     } catch (error) {
         console.error("Error in getOrderReturnHistory controller", error.message);
@@ -107,28 +125,45 @@ export const getOrderReturnHistory = async (req, res) => {
 
 export const showAllOrders = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page);
+    const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * limit;
-    let docs = 1;
+
     try {
-        const orders = await Order.find({}).skip(skip).limit(limit).sort({ createdAt: -1 })
-        .populate("user", "name email")
-        .populate("products.product", "name image")
-        .lean();
-        if (page === 1) {
-            docs = await Order.estimatedDocumentCount();
-        }
-        const totalPages = Math.ceil(docs / limit);
+        const [orders, total] = await Promise.all([
+            prisma.order.findMany({
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: { select: { name: true, email: true } },
+                    orderItems: { include: { product: true } }
+                }
+            }),
+            prisma.order.count()
+        ]);
+
+        const formattedOrders = orders.map(order => ({
+            ...order,
+            products: order.orderItems.map(item => ({
+                product: item.product,
+                quantity: item.quantity,
+                price: item.price
+            }))
+        }));
+
+        const totalPages = Math.ceil(total / limit);
         return res.status(200).json({
-            orders: orders,
+            orders: formattedOrders,
             totalPages: totalPages
         });
-    } catch {
+    } catch (error) {
+        console.error("Error in showAllOrders controller", error.message);
         return res.status(500).json({});
     }
 }
 
 export const orderReturnStatusChange = async (req, res) => {
+    // Original extracted orderId from params but route param is likely :orderId
     const { orderId } = req.params;
     const { status } = req.body;
 
@@ -140,13 +175,13 @@ export const orderReturnStatusChange = async (req, res) => {
     }
 
     try {
-        const order = await Order.findById(orderId).select("returnRequest");
-        if (!order) {
-            return res.status(404).json({ success: false, message: "Order not found" });
-        }
+        // status enum check? status is ReturnStatus enum in Prisma
+        // Frontend sends string. Prisma should handle if it matches enum values.
 
-        order.returnRequest.status = status;
-        await order.save();
+        await prisma.order.update({
+            where: { id: orderId },
+            data: { returnStatus: status }
+        });
 
         res.json({ success: true, msg: "Return request status updated successfully" });
     } catch (error) {
@@ -167,16 +202,16 @@ export const changeOrderStatus = async (req, res) => {
     }
 
     try {
-        const orderStatus = await Order.updateOne(
-            { _id: orderId },
-            { status: status }
-        );
-        if (orderStatus.modifiedCount === 1) {
-            return res.status(200).json({
-                success: true,
-                msg: "Order status updated successfully"
-            });
-        }
+        await prisma.order.update({
+            where: { id: orderId },
+            data: { status: status }
+        });
+
+        return res.status(200).json({
+            success: true,
+            msg: "Order status updated successfully"
+        });
+
     } catch (error) {
         console.error("Error in changeOrderStatus controller", error.message);
         res.status(500).json({ success: false, message: "Server error", error: error.message });

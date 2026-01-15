@@ -1,5 +1,10 @@
 {
- "name": "App",
+ "name": "Sharwings",
+ "short_name": "Sharwings",
+ "start_url": "/",
+ "display": "standalone",
+ "background_color": "#0b1720",
+ "theme_color": "#10b981",
  "icons": [
   {
    "src": "\/android-icon-36x36.png",
@@ -31,11 +36,11 @@
    "type": "image\/png",
    "density": "3.0"
   },
-  {
-   "src": "\/android-icon-192x192.png",
-   "sizes": "192x192",
-   "type": "image\/png",
-   "density": "4.0"
-  }
+ {
+  "src": "\/android-icon-192x192.png",
+  "sizes": "192x192",
+  "type": "image\/png",
+  "density": "4.0"
+ }
  ]
 }

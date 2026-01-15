@@ -1,6 +1,7 @@
+import prisma from "../lib/prisma.js";
 import { redis } from "../lib/redis.js";
-import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs"; // Need to manually compare passwords now since no Mongoose method
 
 const generateTokens = (userId) => {
 	const accessToken = jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET, {
@@ -15,7 +16,11 @@ const generateTokens = (userId) => {
 };
 
 const storeRefreshToken = async (userId, refreshToken) => {
-	await redis.set(`refresh_token:${userId}`, refreshToken, "EX", 7 * 24 * 60 * 60); // 7days
+	try {
+		await redis.set(`refresh_token:${userId}`, refreshToken, "EX", 7 * 24 * 60 * 60); // 7days
+	} catch (error) {
+		console.log("Error storing refresh token in Redis:", error.message);
+	}
 };
 
 const setCookies = (res, accessToken, refreshToken) => {
@@ -36,21 +41,31 @@ const setCookies = (res, accessToken, refreshToken) => {
 export const signup = async (req, res) => {
 	const { email, password, name } = req.body;
 	try {
-		const userExists = await User.findOne({ email });
+		const userExists = await prisma.user.findUnique({ where: { email } });
 
 		if (userExists) {
 			return res.status(400).json({ message: "User already exists" });
 		}
-		const user = await User.create({ name, email, password });
+
+		const salt = await bcrypt.genSalt(10);
+		const hashedPassword = await bcrypt.hash(password, salt);
+
+		const user = await prisma.user.create({
+			data: {
+				name,
+				email,
+				password: hashedPassword,
+			}
+		});
 
 		// authenticate
-		const { accessToken, refreshToken } = generateTokens(user._id);
-		await storeRefreshToken(user._id, refreshToken);
+		const { accessToken, refreshToken } = generateTokens(user.id);
+		await storeRefreshToken(user.id, refreshToken);
 
 		setCookies(res, accessToken, refreshToken);
 
 		res.status(201).json({
-			_id: user._id,
+			_id: user.id,
 			name: user.name,
 			email: user.email,
 			role: user.role,
@@ -64,15 +79,15 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
 	try {
 		const { email, password } = req.body;
-		const user = await User.findOne({ email });
+		const user = await prisma.user.findUnique({ where: { email } });
 
-		if (user && (await user.comparePassword(password))) {
-			const { accessToken, refreshToken } = generateTokens(user._id);
-			await storeRefreshToken(user._id, refreshToken);
+		if (user && (await bcrypt.compare(password, user.password))) {
+			const { accessToken, refreshToken } = generateTokens(user.id);
+			await storeRefreshToken(user.id, refreshToken);
 			setCookies(res, accessToken, refreshToken);
 
 			res.json({
-				_id: user._id,
+				_id: user.id,
 				name: user.name,
 				email: user.email,
 				role: user.role,

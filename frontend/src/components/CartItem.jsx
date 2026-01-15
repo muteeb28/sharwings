@@ -1,14 +1,22 @@
 import { Minus, Plus, Trash } from "lucide-react";
 import { useCartStore } from "../stores/useCartStore";
+import { getOptimizedImageUrl } from "../lib/imageUtils";
 
 const CartItem = ({ item }) => {
 	const { removeFromCart, updateQuantity } = useCartStore();
+	const imageUrl = getOptimizedImageUrl(item.image, { width: 240 });
 
 	return (
 		<div className='rounded-lg border p-4 shadow-sm border-gray-700 bg-gray-800 md:p-6'>
 			<div className='space-y-4 md:flex md:items-center md:justify-between md:gap-6 md:space-y-0'>
 				<div className='shrink-0 md:order-1'>
-					<img className='h-20 md:h-32 rounded object-cover' src={item.image} />
+					<img
+						className='h-20 md:h-32 rounded object-cover'
+						src={imageUrl}
+						alt={item.name}
+						loading="lazy"
+						decoding="async"
+					/>
 				</div>
 				<label className='sr-only'>Choose quantity:</label>
 

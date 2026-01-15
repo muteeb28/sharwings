@@ -1,70 +1,60 @@
-import Order from "../models/order.model.js";
-import Product from "../models/product.model.js";
-import User from "../models/user.model.js";
+import prisma from "../lib/prisma.js";
 
 export const getAnalyticsData = async () => {
-	const totalUsers = await User.countDocuments();
-	const totalProducts = await Product.countDocuments();
+	try {
+		const totalUsers = await prisma.user.count();
+		const totalProducts = await prisma.product.count();
 
-	const salesData = await Order.aggregate([
-		{
-			$group: {
-				_id: null, // it groups all documents together,
-				totalSales: { $sum: 1 },
-				totalRevenue: { $sum: "$totalAmount" },
+		// Calculate total sales count and total revenue
+		const salesData = await prisma.order.aggregate({
+			_count: {
+				id: true
 			},
-		},
-	]);
+			_sum: {
+				totalAmount: true
+			}
+		});
 
-	const { totalSales, totalRevenue } = salesData[0] || { totalSales: 0, totalRevenue: 0 };
+		const totalSales = salesData._count.id;
+		const totalRevenue = salesData._sum.totalAmount || 0;
 
-	return {
-		users: totalUsers,
-		products: totalProducts,
-		totalSales,
-		totalRevenue,
-	};
+		return {
+			users: totalUsers,
+			products: totalProducts,
+			totalSales,
+			totalRevenue,
+		};
+	} catch (error) {
+		throw error;
+	}
 };
 
 export const getDailySalesData = async (startDate, endDate) => {
 	try {
-		const dailySalesData = await Order.aggregate([
-			{
-				$match: {
-					createdAt: {
-						$gte: startDate,
-						$lte: endDate,
-					},
-				},
-			},
-			{
-				$group: {
-					_id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-					sales: { $sum: 1 },
-					revenue: { $sum: "$totalAmount" },
-				},
-			},
-			{ $sort: { _id: 1 } },
-		]);
+		// Using raw query for date manipulation in PostgreSQL
+		const dailySalesData = await prisma.$queryRaw`
+            SELECT 
+                TO_CHAR("createdAt", 'YYYY-MM-DD') as _id,
+                COUNT(id) as sales,
+                SUM("totalAmount") as revenue
+            FROM orders
+            WHERE "createdAt" >= ${new Date(startDate)} 
+              AND "createdAt" <= ${new Date(endDate)}
+            GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+            ORDER BY _id ASC
+        `;
 
-		// example of dailySalesData
-		// [
-		// 	{
-		// 		_id: "2024-08-18",
-		// 		sales: 12,
-		// 		revenue: 1450.75
-		// 	},
-		// ]
+		// Note: Prisma returns BigInt for count in raw queries sometimes, or just number.
+		// Need to be careful mapping. TO_CHAR output is string.
 
 		const dateArray = getDatesInRange(startDate, endDate);
-		// console.log(dateArray) // ['2024-08-18', '2024-08-19', ... ]
 
 		return dateArray.map((date) => {
 			const foundData = dailySalesData.find((item) => item._id === date);
 
 			return {
 				date,
-				sales: foundData?.sales || 0,
+				sales: foundData?.sales ? Number(foundData.sales) : 0,
 				revenue: foundData?.revenue || 0,
 			};
 		});

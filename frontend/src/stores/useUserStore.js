@@ -2,6 +2,28 @@ import { create } from "zustand";
 import axios from "../lib/axios";
 import { toast } from "react-hot-toast";
 
+const AUTH_HINT_KEY = "authHint";
+
+const setAuthHint = (value) => {
+	try {
+		if (value) {
+			localStorage.setItem(AUTH_HINT_KEY, "1");
+		} else {
+			localStorage.removeItem(AUTH_HINT_KEY);
+		}
+	} catch {
+		// Ignore storage failures (private mode, blocked storage, etc.).
+	}
+};
+
+const hasAuthHint = () => {
+	try {
+		return localStorage.getItem(AUTH_HINT_KEY) === "1";
+	} catch {
+		return false;
+	}
+};
+
 export const useUserStore = create((set, get) => ({
 	user: null,
 	loading: false,
@@ -17,6 +39,7 @@ export const useUserStore = create((set, get) => ({
 
 		try {
 			const res = await axios.post("/auth/signup", { name, email, password });
+			setAuthHint(true);
 			set({ user: res.data, loading: false });
 		} catch (error) {
 			set({ loading: false });
@@ -29,6 +52,7 @@ export const useUserStore = create((set, get) => ({
 		try {
 			const res = await axios.post("/auth/login", { email, password });
 
+			setAuthHint(true);
 			set({ user: res.data, loading: false });
 		} catch (error) {
 			set({ loading: false });
@@ -39,6 +63,7 @@ export const useUserStore = create((set, get) => ({
 	logout: async () => {
 		try {
 			await axios.post("/auth/logout");
+			setAuthHint(false);
 			set({ user: null });
 		} catch (error) {
 			toast.error(error.response?.data?.message || "An error occurred during logout");
@@ -46,12 +71,22 @@ export const useUserStore = create((set, get) => ({
 	},
 
 	checkAuth: async () => {
+		if (!hasAuthHint()) {
+			set({ checkingAuth: false, user: null });
+			return;
+		}
 		set({ checkingAuth: true });
 		try {
 			const response = await axios.get("/auth/profile");
+			setAuthHint(true);
 			set({ user: response.data, checkingAuth: false });
 		} catch (error) {
-			console.log(error.message);
+			const status = error.response?.status;
+			if (status === 401) {
+				setAuthHint(false);
+			} else if (status) {
+				console.log(error.message);
+			}
 			set({ checkingAuth: false, user: null });
 		}
 	},
@@ -63,9 +98,11 @@ export const useUserStore = create((set, get) => ({
 		set({ checkingAuth: true });
 		try {
 			const response = await axios.post("/auth/refresh-token");
+			setAuthHint(true);
 			set({ checkingAuth: false });
 			return response.data;
 		} catch (error) {
+			setAuthHint(false);
 			set({ user: null, checkingAuth: false });
 			throw error;
 		}

@@ -5,12 +5,15 @@ import axiosInstance from "../lib/axios";
 import { useCartStore } from "../stores/useCartStore";
 import { useUserStore } from "../stores/useUserStore";
 import { toast } from "react-hot-toast";
+import { getOptimizedImageUrl, getOptimizedSrcSet } from "../lib/imageUtils";
 
 export default function Pdp() {
   const { name } = useParams();
   const { addToCart } = useCartStore();
   const { user } = useUserStore();
   const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
     const handleAddToCart = () => {
         if (!user) {
             toast.error("Please login to add products to cart", { id: "login" });
@@ -26,16 +29,21 @@ export default function Pdp() {
     // Fetch product details by id
     async function fetchProduct() {
       try {
+        setLoading(true);
+        setLoadError("");
         const res = await axiosInstance.get(`/products/${name}`);
         setProduct(res.data.product);
-      } catch {
+      } catch (error) {
         setProduct(null);
+        setLoadError(error.response?.data?.message || "Failed to load product.");
+      } finally {
+        setLoading(false);
       }
     }
     fetchProduct();
   }, [name]);
 
-  if (!product) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] text-gray-600 text-xl">
         Loading product...
@@ -43,15 +51,30 @@ export default function Pdp() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] text-gray-600 text-xl">
+        {loadError}
+      </div>
+    );
+  }
+
+  const imageUrl = getOptimizedImageUrl(product.image || "/placeholder.png", { width: 800 });
+  const imageSrcSet = getOptimizedSrcSet(product.image || "/placeholder.png", [480, 640, 800, 960]);
+
   return (
     <div className="min-h-[80vh] bg-gradient-to-br from-emerald-50 via-white to-emerald-100 py-10 px-4 flex flex-col md:flex-row gap-10 md:gap-16 items-start justify-center">
       {/* Image Section (Sticky) */}
       <div className="w-full md:w-[40%] flex justify-center items-start">
         <div className="bg-white rounded-xl shadow-lg p-6 flex items-center justify-center w-full max-w-md md:sticky md:top-28">
           <img
-            src={product.image || "/placeholder.png"}
+            src={imageUrl}
+            srcSet={imageSrcSet}
+            sizes="(min-width: 1024px) 40vw, 100vw"
             alt={product.name}
             className="rounded-lg max-h-[400px] object-contain w-full"
+            loading="lazy"
+            decoding="async"
           />
         </div>
       </div>
