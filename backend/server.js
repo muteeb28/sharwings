@@ -30,11 +30,14 @@ const PORT = process.env.PORT || 5000;
 
 const __dirname = path.resolve();
 
-const corsOptions = {
-	origin: process.env.CLIENT_URL,
-	methods: ['GET', 'POST', 'PUT', 'DELETE'],
-	credentials: true
-};
+app.use(cors({
+  origin: process.env.CLIENT_URL,  // frontend domain
+  credentials: true,               // allow cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+app.options('*', cors()); // handle preflight OPTIONS requests
 app.use(cors(corsOptions));
 
 app.use(express.json({ limit: "10mb" })); // allows you to parse the body of the request
@@ -112,3 +115,4 @@ if (process.env.VERCEL) {
 }
 
 export default app;
+
