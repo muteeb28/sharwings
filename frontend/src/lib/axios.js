@@ -24,7 +24,7 @@ const normalizeIds = (value, seen = new WeakSet()) => {
 };
 
 const axiosInstance = axios.create({
-	baseURL: "/api",
+	baseURL: process.env.NEXT_BACKEND_URL,
 	withCredentials: true, // send cookies to the server
 });
 
