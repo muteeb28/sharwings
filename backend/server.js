@@ -38,7 +38,6 @@ app.use(cors({
 }));
 
 app.options('*', cors()); // handle preflight OPTIONS requests
-app.use(cors(corsOptions));
 
 app.use(express.json({ limit: "10mb" })); // allows you to parse the body of the request
 app.use(cookieParser());
@@ -115,4 +114,5 @@ if (process.env.VERCEL) {
 }
 
 export default app;
+
 
